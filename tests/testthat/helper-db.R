@@ -2,7 +2,7 @@ get_test_connection <- function(dbname = "testdb") {
   user <- Sys.getenv("PGUSER")
   password <- Sys.getenv("PGPASSWORD")
   host <- Sys.getenv("PGHOST", "localhost")
-  port <- as.integer(Sys.getenv("PGPORT", "5433"))
+  port <- as.integer(Sys.getenv("PGPORT", "5434"))
 
   if (user == "" || password == "") {
     testthat::skip("PostgreSQL test credentials unavailable")
