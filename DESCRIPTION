@@ -5,7 +5,7 @@ Version: 0.0.0.9000
 Authors@R: 
     person("Mathieu", "Genu", , "mathieu.genu@gmail.com", role = c("aut", "cre"))
 Description: The Goal is to ease the use of IA to give a score to
-    different type of content (posts, article, job offer) by storing
+    different type of content (posts, articles, job offer) by storing
     information in a postgres database and score content according to a
     profile defined by the user.
 License: MIT + file LICENSE
