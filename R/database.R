@@ -1,190 +1,110 @@
-#' Connect to a PostgreSQL database
-#' @param dbname name of the database to connect to
-#' @param host PostgreSQL host (default: "localhost")
-#' @param port PostgreSQL port (default: 5432)
-#' @param user PostgreSQL username
-#' @param password PostgreSQL password
-#' @importFrom DBI dbConnect
-#' @importFrom RPostgres Postgres
-#' @export
-con_psql_db <- function(
-  dbname,
-  host = "localhost",
-  port = 5432,
-  user,
-  password = Sys.getenv("POSTGRES_PASSWORD")
-) {
-  dbConnect(
-    drv = Postgres(),
-    dbname = dbname,
-    host = host,
-    port = port,
-    user = user,
-    password = password
-  )
-}
-
-#' Create a PostgreSQL database if it does not exist
-#' @param dbname Database name
-#' @param host PostgreSQL host
-#' @param port PostgreSQL port
-#' @param user PostgreSQL username
-#' @param password PostgreSQL password
-#' @importFrom DBI dbGetQuery dbExecute dbDisconnect dbQuoteIdentifier
-#' @export
-create_database <- function(
-  dbname,
-  host = "localhost",
-  port = 5432,
-  user,
-  password = Sys.getenv("POSTGRES_PASSWORD")
-) {
-  con <- con_psql_db(
-    dbname = "postgres",
-    host = host,
-    port = port,
-    user = user,
-    password = password
-  )
-
-  on.exit(dbDisconnect(con), add = TRUE)
-
-  exists <- dbGetQuery(
-    con,
-    "SELECT EXISTS (
-      SELECT 1 FROM pg_database WHERE datname = $1
-    ) AS exists",
-    params = list(dbname)
-  )$exists[[1]]
-
-  if (!exists) {
-    message("Creating database: ", dbname)
-
-    dbExecute(
-      con,
-      paste(
-        "CREATE DATABASE",
-        dbQuoteIdentifier(con, dbname)
-      ),
-      immediate = TRUE
-    )
-  } else {
-    message("Database already exists: ", dbname)
-  }
-
-  invisible(TRUE)
-}
-
-
-#' Create tables in the database
-#' @param con database connection established with [con_psql_db()]
-#' @importFrom DBI dbExecute
-#' @seealso [con_psql_db()]
-#' @export
-create_tables <- function(con) {
-  DBI::dbExecute(
-    con,
-    "
-    CREATE TABLE IF NOT EXISTS items (
-      id TEXT PRIMARY KEY,
-      source TEXT,
-      external_id TEXT,
-      url TEXT,
-      title TEXT,
-      content TEXT,
-      published_at TIMESTAMPTZ,
-      first_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      raw_data JSONB
-    );
-  "
-  )
-
-  DBI::dbExecute(
-    con,
-    "
-    CREATE TABLE IF NOT EXISTS scoring_runs (
-      id TEXT PRIMARY KEY,
-      name TEXT,
-      model TEXT,
-      prompt_version TEXT,
-      schema_version TEXT,
-      config JSONB,
-      created_at TIMESTAMPTZ
-    );
-  "
-  )
-
-  DBI::dbExecute(
-    con,
-    "
-    CREATE TABLE IF NOT EXISTS scores (
-      id TEXT PRIMARY KEY,
-      item_id TEXT NOT NULL REFERENCES items(id) ON DELETE CASCADE,
-      scoring_run_id TEXT NOT NULL REFERENCES scoring_runs(id) ON DELETE CASCADE,
-      score_global NUMERIC,
-      category TEXT,
-      result JSONB,
-      status TEXT,
-      error_message TEXT,
-      scored_at TIMESTAMPTZ
-    );
-  "
-  )
-
-  invisible(con)
-}
-
-#' Initialize database schema
-#' @param con An active DBI connection
-#' @export
-initialize_database <- function(con) {
-  if (!DBI::dbIsValid(con)) {
-    stop("Invalid database connection.", call. = FALSE)
-  }
-
-  create_tables(con)
-
-  invisible(con)
-}
-
-
-#' Setup a PostgreSQL database
-#' @param dbname Database name
-#' @param host PostgreSQL host
-#' @param port PostgreSQL port
-#' @param user PostgreSQL username
-#' @param password PostgreSQL password
-#' @export
-setup_database <- function(
-  dbname,
-  host = "localhost",
-  port = 5432,
-  user,
-  password = Sys.getenv("POSTGRES_PASSWORD")
-) {
-  # Create database if necessary
-  create_database(
-    dbname = dbname,
-    host = host,
-    port = port,
-    user = user,
-    password = password
-  )
-
-  # Connect to target database
-  con <- con_psql_db(
-    dbname = dbname,
-    host = host,
-    port = port,
-    user = user,
-    password = password
-  )
-
-  # Initialize tables
-  initialize_database(con)
-
-  message("Database successfully initialized.")
-
-  invisible(con)
-}
+#' Database management
+#'
+#' Functions to connect to, create and initialize a PostgreSQL
+#' database used by AIRate.
+#'
+#' AIRate uses PostgreSQL to store items, scoring runs and scoring
+#' results. The database setup workflow consists of:
+#'
+#' \enumerate{
+#'   \item Creating the database if it does not already exist.
+#'   \item Connecting to the database.
+#'   \item Initializing the database schema by creating the required
+#'   tables if they do not already exist.
+#' }
+#'
+#' @section Functions:
+#'
+#' \describe{
+#'   \item{\code{con_psql_db()}}{
+#'     Establishes a connection to an existing PostgreSQL database.
+#'   }
+#'   \item{\code{create_database()}}{
+#'     Creates a PostgreSQL database if it does not already exist.
+#'   }
+#'   \item{\code{create_tables()}}{
+#'     Creates the tables required by AIRate if they do not already exist.
+#'   }
+#'   \item{\code{initialize_database()}}{
+#'     Checks the connection and initializes the database schema.
+#'   }
+#'   \item{\code{setup_database()}}{
+#'     Performs the complete database setup: creation, connection
+#'     and initialization.
+#'   }
+#' }
+#'
+#' @section Database schema:
+#'
+#' The database contains three main tables:
+#'
+#' \describe{
+#'   \item{\code{items}}{
+#'     Stores the collected items, their metadata and raw data
+#'     (JSONB).
+#'   }
+#'   \item{\code{scoring_runs}}{
+#'     Stores information about scoring configurations, models
+#'     and prompt versions.
+#'   }
+#'   \item{\code{scores}}{
+#'     Stores scoring results associated with items and scoring runs.
+#'   }
+#' }
+#'
+#' @section Credentials:
+#'
+#' All connection functions accept the following parameters:
+#'
+#' \describe{
+#'   \item{\code{dbname}}{Name of the PostgreSQL database.}
+#'   \item{\code{host}}{PostgreSQL server host. Defaults to
+#'   \code{"localhost"}.}
+#'   \item{\code{port}}{PostgreSQL server port. Defaults to
+#'   \code{5432}.}
+#'   \item{\code{user}}{PostgreSQL username.}
+#'   \item{\code{password}}{PostgreSQL password. Defaults to the
+#'   \code{POSTGRES_PASSWORD} environment variable.}
+#' }
+#'
+#' It is recommended to store the password in an environment variable
+#' rather than writing it directly in scripts.
+#'
+#' @return
+#' \describe{
+#'   \item{\code{con_psql_db()}}{A DBI connection.}
+#'   \item{\code{create_database()}}{Invisible \code{TRUE}.}
+#'   \item{\code{create_tables()}}{The supplied DBI connection,
+#'   invisibly.}
+#'   \item{\code{initialize_database()}}{The supplied DBI connection,
+#'   invisibly.}
+#'   \item{\code{setup_database()}}{An initialized DBI connection,
+#'   invisibly.}
+#' }
+#'
+#' @examples
+#' \dontrun{
+#' library(AIRate)
+#' library(DBI)
+#'
+#' # Create and initialize the database
+#' con <- setup_database(
+#'   dbname = "airate",
+#'   host = "localhost",
+#'   port = 5432,
+#'   user = "postgres",
+#'   password = Sys.getenv("POSTGRES_PASSWORD")
+#' )
+#'
+#' # List available tables
+#' dbListTables(con)
+#'
+#' # Close the connection when finished
+#' dbDisconnect(con)
+#' }
+#'
+#' @name database
+#' @aliases con_psql_db create_database create_tables
+#'   initialize_database setup_database
+#' @seealso DBI::dbConnect(), DBI::dbDisconnect()
+NULL

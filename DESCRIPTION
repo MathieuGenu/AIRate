@@ -11,6 +11,7 @@ Description: The Goal is to ease the use of IA to give a score to
 License: MIT + file LICENSE
 Imports: 
     DBI,
+    jsonlite,
     RPostgres
 Suggests: 
     testthat (>= 3.0.0)
