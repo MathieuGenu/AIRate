@@ -7,7 +7,7 @@
 verify_item(data)
 }
 \arguments{
-\item{data}{item data to be verified}
+\item{data}{data to be verified}
 }
 \description{
 Verifiy item data before inserting into the database

@@ -17,10 +17,10 @@ store_item <- function(con, data_raw) {
 
   dbWithTransaction(con, {
     # Temporary staging table
-    DBI::dbWriteTable(
+    dbWriteTable(
       con,
       name = "items_staging",
-      value = data,
+      value = as.data.frame(data),
       temporary = TRUE,
       overwrite = TRUE,
       row.names = FALSE
