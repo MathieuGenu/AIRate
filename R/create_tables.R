@@ -12,6 +12,7 @@ create_tables <- function(con) {
       source TEXT,
       external_id TEXT,
       url TEXT,
+      author TEXT,
       title TEXT,
       content TEXT,
       published_at TIMESTAMPTZ,
@@ -26,7 +27,7 @@ create_tables <- function(con) {
     con,
     "
     CREATE TABLE IF NOT EXISTS scoring_runs (
-      id TEXT PRIMARY KEY,
+      id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
       name TEXT,
       model TEXT,
       prompt_version TEXT,
@@ -41,9 +42,9 @@ create_tables <- function(con) {
     con,
     "
     CREATE TABLE IF NOT EXISTS scores (
-      id TEXT PRIMARY KEY,
-      item_id TEXT NOT NULL REFERENCES items(id) ON DELETE CASCADE,
-      scoring_run_id TEXT NOT NULL REFERENCES scoring_runs(id) ON DELETE CASCADE,
+      id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+      item_id BIGINT NOT NULL REFERENCES items(id) ON DELETE CASCADE,
+      scoring_run_id BIGINT NOT NULL REFERENCES scoring_runs(id) ON DELETE CASCADE,
       score_global NUMERIC,
       category TEXT,
       result JSONB,

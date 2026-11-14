@@ -2,6 +2,17 @@ test_that("Database tables are correctly created", {
   con <- get_test_connection()
   on.exit(DBI::dbDisconnect(con))
 
+  DBI::dbExecute(
+    con,
+    "
+  DROP TABLE IF EXISTS
+    scores,
+    scoring_runs,
+    items
+  CASCADE
+  "
+  )
+
   initialize_database(con)
 
   tables <- DBI::dbListTables(con)
